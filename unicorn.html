@@ -266,10 +266,10 @@
 
     .torus-stage {
       position: absolute;
-      inset: auto 0 0;
-      z-index: 1;
+      inset: 0;
+      z-index: 0;
       width: 100%;
-      height: clamp(150px, 24vh, 250px);
+      height: 100%;
       pointer-events: none;
     }
 
@@ -277,21 +277,6 @@
       display: block;
       width: 100%;
       height: 100%;
-    }
-
-    .scene-page::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 90%;
-      z-index: -1;
-      width: min(36vw, 360px);
-      height: min(18vh, 180px);
-      transform: translate(-50%, -50%);
-      border-radius: 50%;
-      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.18), transparent 68%);
-      filter: blur(28px);
-      opacity: 0.52;
     }
 
     @media (max-width: 640px) {
@@ -338,7 +323,7 @@
       <div class="slider-container">
         <div class="slider-wrapper" id="elasticSlider">
           <span class="slider-icon is-left" aria-hidden="true">−</span>
-          <div class="slider-root" id="sliderRoot" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+          <div class="slider-root" id="sliderRoot" role="slider" aria-label="Background Color" aria-valuemin="0" aria-valuemax="100" aria-valuenow="58" tabindex="0">
             <div class="slider-track-wrapper">
               <div class="slider-track">
                 <div class="slider-range" id="sliderRange"></div>
@@ -347,7 +332,7 @@
           </div>
           <span class="slider-icon is-right" aria-hidden="true">＋</span>
         </div>
-        <p class="value-indicator" id="sliderValue">50</p>
+        <p class="value-indicator" id="sliderValue">58</p>
       </div>
     </section>
 
@@ -476,7 +461,7 @@
       if (!wrapper || !root || !range || !valueLabel || !leftIcon || !rightIcon) return;
 
       const maxOverflow = 50;
-      let value = 50;
+      let value = 58;
       let pointerId = null;
 
       function sigmoidOverflow(distance) {
@@ -489,6 +474,11 @@
         range.style.width = `${value}%`;
         valueLabel.textContent = String(value);
         root.setAttribute('aria-valuenow', String(value));
+
+        // Local preview feedback: update active slider styling immediately
+        const previewColor = new THREE.Color().setHSL(value / 100, 0.85, 0.45);
+        range.style.backgroundColor = previewColor.getStyle();
+        valueLabel.style.color = previewColor.getStyle();
       }
 
       function setElastic(clientX) {
@@ -534,6 +524,9 @@
         rightIcon.style.setProperty('--right-icon-x', '0px');
         leftIcon.style.setProperty('--left-icon-scale', '1');
         rightIcon.style.setProperty('--right-icon-scale', '1');
+
+        // Transition background color on release
+        setTargetHue(value);
       }
 
       wrapper.addEventListener('pointerenter', () => {
@@ -565,21 +558,25 @@
       root.addEventListener('keydown', event => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
           setValue(value - 1);
+          setTargetHue(value);
           event.preventDefault();
         }
 
         if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
           setValue(value + 1);
+          setTargetHue(value);
           event.preventDefault();
         }
 
         if (event.key === 'Home') {
           setValue(0);
+          setTargetHue(value);
           event.preventDefault();
         }
 
         if (event.key === 'End') {
           setValue(100);
+          setTargetHue(value);
           event.preventDefault();
         }
       });
@@ -597,6 +594,32 @@
     const stage = document.getElementById('torusStage');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    // Derived HSL color system
+    function getColorsForHue(huePercent) {
+      const h = huePercent / 100;
+      const c1 = new THREE.Color().setHSL(h, 0.85, 0.45);
+      const c2 = new THREE.Color().setHSL((h + 0.11) % 1.0, 0.80, 0.65);
+      const c3 = new THREE.Color().setHSL((h - 0.11 + 1.0) % 1.0, 0.90, 0.55);
+      return { c1, c2, c3 };
+    }
+
+    let targetHue = 58;
+    let currentHue = 58;
+    const targetBgColors = getColorsForHue(targetHue);
+    const currentBgColors = {
+      c1: targetBgColors.c1.clone(),
+      c2: targetBgColors.c2.clone(),
+      c3: targetBgColors.c3.clone()
+    };
+
+    function setTargetHue(newHue) {
+      targetHue = newHue;
+      const nextColors = getColorsForHue(newHue);
+      targetBgColors.c1.copy(nextColors.c1);
+      targetBgColors.c2.copy(nextColors.c2);
+      targetBgColors.c3.copy(nextColors.c3);
+    }
+
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
@@ -612,6 +635,95 @@
     const camera = new THREE.OrthographicCamera(-2.25, 2.25, 1.7, -1.7, 0.1, 20);
     camera.position.set(0, 0, 7);
     camera.lookAt(0, 0, 0);
+
+    // Full-screen Grainy Gradient (Grainient) background mesh
+    const bgVertexShader = `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    const bgFragmentShader = `
+      precision highp float;
+      uniform vec3 uColor1;
+      uniform vec3 uColor2;
+      uniform vec3 uColor3;
+      uniform float uTime;
+      uniform float uNoiseScale;
+      uniform float uWarpStrength;
+      uniform float uGrainAmount;
+      varying vec2 vUv;
+
+      float rand(vec2 co) {
+        return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+      }
+
+      float noise(vec2 p) {
+        vec2 ip = floor(p);
+        vec2 fp = fract(p);
+        fp = fp * fp * (3.0 - 2.0 * fp);
+        float a = rand(ip);
+        float b = rand(ip + vec2(1.0, 0.0));
+        float c = rand(ip + vec2(0.0, 1.0));
+        float d = rand(ip + vec2(1.0, 1.0));
+        return mix(mix(a, b, fp.x), mix(c, d, fp.x), fp.y);
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        vec2 shift = vec2(100.0);
+        mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+        for (int i = 0; i < 4; ++i) {
+          v += a * noise(p);
+          p = rot * p * 2.0 + shift;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        vec2 q = vec2(0.0);
+        q.x = fbm(uv * uNoiseScale + uTime * 0.12);
+        q.y = fbm(uv * uNoiseScale + vec2(1.0) + uTime * 0.09);
+        vec2 r = vec2(0.0);
+        r.x = fbm(uv * uNoiseScale + q * uWarpStrength + vec2(1.7, 9.2) + uTime * 0.08);
+        r.y = fbm(uv * uNoiseScale + q * uWarpStrength + vec2(8.3, 2.8) + uTime * 0.06);
+        float f = fbm(uv * uNoiseScale + r * uWarpStrength);
+        vec3 color = mix(uColor1, uColor2, f);
+        color = mix(color, uColor3, dot(q, r) * 1.5);
+        float grain = (rand(gl_FragCoord.xy + uTime) - 0.5) * uGrainAmount;
+        color += grain;
+        color = clamp(color, 0.0, 1.0);
+        color = pow(color, vec3(1.05));
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+
+    const bgGeometry = new THREE.PlaneGeometry(30, 30);
+    const bgMaterial = new THREE.ShaderMaterial({
+      vertexShader: bgVertexShader,
+      fragmentShader: bgFragmentShader,
+      depthWrite: false,
+      depthTest: false,
+      uniforms: {
+        uColor1: { value: currentBgColors.c1 },
+        uColor2: { value: currentBgColors.c2 },
+        uColor3: { value: currentBgColors.c3 },
+        uTime: { value: 0 },
+        uNoiseScale: { value: 1.5 },
+        uWarpStrength: { value: 1.8 },
+        uGrainAmount: { value: 0.045 }
+      }
+    });
+
+    const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+    bgMesh.position.set(0, 0, -5);
+    bgMesh.renderOrder = -1;
+    scene.add(bgMesh);
 
     const group = new THREE.Group();
     group.rotation.set(
@@ -730,11 +842,38 @@
     function render() {
       const elapsed = clock.getElapsedTime();
 
+      // Smoothly interpolate current background colors to target colors in render loop
+      if (currentBgColors.c1.distanceTo(targetBgColors.c1) > 0.001) {
+        currentBgColors.c1.lerp(targetBgColors.c1, 0.04);
+        currentBgColors.c2.lerp(targetBgColors.c2, 0.04);
+        currentBgColors.c3.lerp(targetBgColors.c3, 0.04);
+
+        BLUE.copy(currentBgColors.c1);
+        renderer.setClearColor(BLUE, 1);
+        scene.background = BLUE;
+        document.documentElement.style.setProperty('--blue', currentBgColors.c1.getStyle());
+      } else {
+        currentBgColors.c1.copy(targetBgColors.c1);
+        currentBgColors.c2.copy(targetBgColors.c2);
+        currentBgColors.c3.copy(targetBgColors.c3);
+
+        BLUE.copy(currentBgColors.c1);
+        renderer.setClearColor(BLUE, 1);
+        scene.background = BLUE;
+        document.documentElement.style.setProperty('--blue', currentBgColors.c1.getStyle());
+      }
+
       if (!reduceMotion) {
         group.rotation.x = THREE.MathUtils.degToRad(230) + elapsed * 0.95;
         group.rotation.y = THREE.MathUtils.degToRad(127) + Math.sin(elapsed * 0.42) * 0.18;
         group.rotation.z = THREE.MathUtils.degToRad(180) + elapsed * 0.16;
       }
+
+      // Update background uniforms
+      bgMaterial.uniforms.uTime.value = elapsed;
+      bgMaterial.uniforms.uColor1.value.copy(currentBgColors.c1);
+      bgMaterial.uniforms.uColor2.value.copy(currentBgColors.c2);
+      bgMaterial.uniforms.uColor3.value.copy(currentBgColors.c3);
 
       for (const mesh of [backGhost, blueCore, mainRing]) {
         mesh.material.uniforms.uTime.value = elapsed;
