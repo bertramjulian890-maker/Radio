@@ -1,0 +1,10 @@
+{
+  "name": "radio-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "install:design-md": "node scripts/install-design-md.mjs"
+  }
+}

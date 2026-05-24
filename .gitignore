@@ -1,0 +1,12 @@
+.DS_Store
+screenshots/
+.agents/
+node_modules/
+*.log
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+output/
+radio_productions/

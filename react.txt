@@ -1,0 +1,4 @@
+// Unicorn Studio has been removed from the second page prototype.
+// The current implementation lives in unicorn.html as a local Three.js WebGL scene.
+// If this project later moves to React/Next, port the torus scene into a client component
+// and keep the shader/material logic from unicorn.html instead of using unicornstudio-react.
