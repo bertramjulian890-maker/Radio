@@ -3,11 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blue Torus Scene</title>
+  <title>Blue Record Components</title>
   <style>
     :root {
       color-scheme: light;
       --blue: #0081f7;
+      --soft-blue: #78c6ff;
+      --white: #f5f9ff;
+      --muted: rgba(245, 249, 255, 0.72);
+      --track: rgba(255, 255, 255, 0.38);
     }
 
     * {
@@ -26,6 +30,7 @@
     body {
       display: grid;
       place-items: center;
+      font-family: "Bricolage Grotesque", "Avenir Next", "Helvetica Neue", sans-serif;
     }
 
     .scene-page {
@@ -37,11 +42,221 @@
       isolation: isolate;
     }
 
-    .torus-stage {
+    .component-stack {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      gap: clamp(26px, 4vh, 42px);
+      width: 100%;
+      padding-top: clamp(52px, 8vh, 90px);
+      pointer-events: none;
+    }
+
+    .tilted-card-figure,
+    .slider-container {
+      pointer-events: auto;
+    }
+
+    .tilted-card-figure {
+      position: relative;
+      width: min(68vw, 340px);
+      height: min(68vw, 340px);
+      perspective: 800px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .tilted-card-inner {
+      position: relative;
+      width: min(68vw, 320px);
+      height: min(68vw, 320px);
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    .tilted-card-img {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
+      object-fit: cover;
+      border-radius: 15px;
+      box-shadow: 0 28px 90px rgba(0, 39, 96, 0.32);
+      transform: translateZ(0);
+      will-change: transform;
+    }
+
+    .tilted-card-overlay {
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      z-index: 2;
+      display: grid;
+      gap: 4px;
+      color: #fff;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
+      transform: translateZ(30px);
+      will-change: transform;
+    }
+
+    .tilted-card-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .tilted-card-meta {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tilted-card-caption {
+      pointer-events: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 3;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background-color: #fff;
+      color: #2d2d2d;
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+      will-change: transform, opacity;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      width: 12rem;
+      color: var(--muted);
+    }
+
+    .slider-wrapper {
+      display: flex;
+      width: 100%;
+      touch-action: none;
+      user-select: none;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      opacity: 0.78;
+      transform: scale(1);
+      transition:
+        opacity 180ms ease,
+        transform 260ms cubic-bezier(0.18, 0.9, 0.22, 1.22);
+    }
+
+    .slider-wrapper.is-active,
+    .slider-wrapper:hover {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+
+    .slider-icon {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 19px;
+      line-height: 1;
+      transform: translateX(0) scale(1);
+      transition: transform 220ms ease;
+    }
+
+    .slider-icon.is-left {
+      transform: translateX(var(--left-icon-x, 0)) scale(var(--left-icon-scale, 1));
+    }
+
+    .slider-icon.is-right {
+      transform: translateX(var(--right-icon-x, 0)) scale(var(--right-icon-scale, 1));
+    }
+
+    .slider-root {
+      position: relative;
+      display: flex;
+      width: 100%;
+      max-width: 200px;
+      flex-grow: 1;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      align-items: center;
+      padding: 1rem 0;
+    }
+
+    .slider-root:active {
+      cursor: grabbing;
+    }
+
+    .slider-track-wrapper {
+      display: flex;
+      flex-grow: 1;
+      height: var(--track-height, 6px);
+      margin-top: var(--track-margin, 0);
+      margin-bottom: var(--track-margin, 0);
+      transform:
+        scaleX(var(--track-scale-x, 1))
+        scaleY(var(--track-scale-y, 1));
+      transform-origin: var(--track-origin, center);
+      transition:
+        height 180ms ease,
+        margin 180ms ease,
+        transform 520ms cubic-bezier(0.18, 0.9, 0.22, 1.28);
+    }
+
+    .slider-wrapper.is-dragging .slider-track-wrapper {
+      transition: none;
+    }
+
+    .slider-track {
+      position: relative;
+      height: 100%;
+      flex-grow: 1;
+      overflow: hidden;
+      border-radius: 9999px;
+      background-color: var(--track);
+    }
+
+    .slider-range {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 50%;
+      border-radius: 9999px;
+      background-color: rgba(255, 255, 255, 0.82);
+    }
+
+    .value-indicator {
+      position: absolute;
+      margin: 0;
+      transform: translateY(-1rem);
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .torus-stage {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 1;
+      width: 100%;
+      height: clamp(150px, 24vh, 250px);
+      pointer-events: none;
     }
 
     .torus-stage canvas {
@@ -54,10 +269,10 @@
       content: "";
       position: absolute;
       left: 50%;
-      top: 70%;
+      top: 90%;
       z-index: -1;
-      width: min(54vw, 520px);
-      height: min(28vh, 260px);
+      width: min(36vw, 360px);
+      height: min(18vh, 180px);
       transform: translate(-50%, -50%);
       border-radius: 50%;
       background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.18), transparent 68%);
@@ -66,26 +281,250 @@
     }
 
     @media (max-width: 640px) {
-      .torus-stage {
-        width: 100%;
-        height: 100%;
+      .component-stack {
+        gap: 24px;
+        padding-top: 44px;
+      }
+
+      .tilted-card-figure,
+      .tilted-card-inner {
+        width: min(76vw, 280px);
+        height: min(76vw, 280px);
+      }
+
+      .tilted-card-caption {
+        display: none;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .torus-stage {
-        transform: translate(-50%, -50%) rotate(0deg);
+      .slider-wrapper,
+      .slider-track-wrapper,
+      .tilted-card-inner {
+        transition: none;
       }
     }
   </style>
 </head>
 <body>
-  <main class="scene-page" aria-label="Blue torus WebGL scene">
+  <main class="scene-page" aria-label="Blue record component scene">
+    <section class="component-stack" aria-label="Interactive music controls">
+      <figure class="tilted-card-figure" id="tiltedCard">
+        <div class="tilted-card-inner">
+          <img class="tilted-card-img" src="assets/背面是我-2000.jpg" alt="背面是我 album cover" />
+          <div class="tilted-card-overlay" aria-hidden="true">
+            <p class="tilted-card-title">背面是我</p>
+            <p class="tilted-card-meta">Marcus / personal radio</p>
+          </div>
+        </div>
+        <figcaption class="tilted-card-caption">背面是我 - Marcus</figcaption>
+      </figure>
+
+      <div class="slider-container">
+        <div class="slider-wrapper" id="elasticSlider">
+          <span class="slider-icon is-left" aria-hidden="true">−</span>
+          <div class="slider-root" id="sliderRoot" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+            <div class="slider-track-wrapper">
+              <div class="slider-track">
+                <div class="slider-range" id="sliderRange"></div>
+              </div>
+            </div>
+          </div>
+          <span class="slider-icon is-right" aria-hidden="true">＋</span>
+        </div>
+        <p class="value-indicator" id="sliderValue">50</p>
+      </div>
+    </section>
+
     <div class="torus-stage" id="torusStage"></div>
   </main>
 
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+
+    function initTiltedCard() {
+      const figure = document.getElementById('tiltedCard');
+      const inner = figure?.querySelector('.tilted-card-inner');
+      const caption = figure?.querySelector('.tilted-card-caption');
+      if (!figure || !inner || !caption) return;
+
+      const state = {
+        rotateX: 0,
+        rotateY: 0,
+        scale: 1,
+        captionX: 0,
+        captionY: 0,
+        captionOpacity: 0,
+        captionRotate: 0
+      };
+      const target = { ...state };
+      let lastY = 0;
+
+      function tick() {
+        for (const key of Object.keys(state)) {
+          state[key] += (target[key] - state[key]) * 0.16;
+        }
+
+        inner.style.transform = `rotateX(${state.rotateX}deg) rotateY(${state.rotateY}deg) scale(${state.scale})`;
+        caption.style.opacity = state.captionOpacity.toFixed(3);
+        caption.style.transform = `translate3d(${state.captionX}px, ${state.captionY}px, 0) rotate(${state.captionRotate}deg)`;
+        requestAnimationFrame(tick);
+      }
+
+      figure.addEventListener('pointermove', event => {
+        const rect = figure.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left - rect.width / 2;
+        const offsetY = event.clientY - rect.top - rect.height / 2;
+        const rotateAmplitude = 14;
+        const velocityY = offsetY - lastY;
+
+        target.rotateX = (offsetY / (rect.height / 2)) * -rotateAmplitude;
+        target.rotateY = (offsetX / (rect.width / 2)) * rotateAmplitude;
+        target.captionX = event.clientX - rect.left;
+        target.captionY = event.clientY - rect.top;
+        target.captionRotate = -velocityY * 0.6;
+        lastY = offsetY;
+      });
+
+      figure.addEventListener('pointerenter', () => {
+        target.scale = 1.1;
+        target.captionOpacity = 1;
+      });
+
+      figure.addEventListener('pointerleave', () => {
+        target.rotateX = 0;
+        target.rotateY = 0;
+        target.scale = 1;
+        target.captionOpacity = 0;
+        target.captionRotate = 0;
+      });
+
+      tick();
+    }
+
+    function initElasticSlider() {
+      const wrapper = document.getElementById('elasticSlider');
+      const root = document.getElementById('sliderRoot');
+      const range = document.getElementById('sliderRange');
+      const valueLabel = document.getElementById('sliderValue');
+      const leftIcon = wrapper?.querySelector('.is-left');
+      const rightIcon = wrapper?.querySelector('.is-right');
+      if (!wrapper || !root || !range || !valueLabel || !leftIcon || !rightIcon) return;
+
+      const maxOverflow = 50;
+      let value = 50;
+      let pointerId = null;
+
+      function sigmoidOverflow(distance) {
+        const normalized = Math.abs(distance) / maxOverflow;
+        return Math.sign(distance) * (2 * (1 / (1 + Math.exp(-normalized)) - 0.5) * maxOverflow);
+      }
+
+      function setValue(nextValue) {
+        value = Math.max(0, Math.min(100, Math.round(nextValue)));
+        range.style.width = `${value}%`;
+        valueLabel.textContent = String(value);
+        root.setAttribute('aria-valuenow', String(value));
+      }
+
+      function setElastic(clientX) {
+        const rect = root.getBoundingClientRect();
+        let overflow = 0;
+        let zone = 'middle';
+
+        if (clientX < rect.left) {
+          zone = 'left';
+          overflow = rect.left - clientX;
+        } else if (clientX > rect.right) {
+          zone = 'right';
+          overflow = clientX - rect.right;
+        } else {
+          setValue(((clientX - rect.left) / rect.width) * 100);
+        }
+
+        const pull = sigmoidOverflow(overflow);
+        const scaleX = 1 + pull / rect.width;
+        const scaleY = 1 - Math.min(pull / maxOverflow, 1) * 0.2;
+
+        root.style.setProperty('--track-scale-x', scaleX.toFixed(3));
+        root.style.setProperty('--track-scale-y', scaleY.toFixed(3));
+        root.style.setProperty('--track-origin', zone === 'left' ? 'right' : zone === 'right' ? 'left' : 'center');
+        root.style.setProperty('--track-height', wrapper.classList.contains('is-active') ? '12px' : '6px');
+        root.style.setProperty('--track-margin', wrapper.classList.contains('is-active') ? '-3px' : '0');
+        leftIcon.style.setProperty('--left-icon-x', zone === 'left' ? `${-pull}px` : '0px');
+        rightIcon.style.setProperty('--right-icon-x', zone === 'right' ? `${pull}px` : '0px');
+        leftIcon.style.setProperty('--left-icon-scale', zone === 'left' && pull > 1 ? '1.32' : '1');
+        rightIcon.style.setProperty('--right-icon-scale', zone === 'right' && pull > 1 ? '1.32' : '1');
+      }
+
+      function release() {
+        pointerId = null;
+        wrapper.classList.remove('is-dragging');
+        wrapper.classList.remove('is-active');
+        root.style.setProperty('--track-scale-x', '1');
+        root.style.setProperty('--track-scale-y', '1');
+        root.style.setProperty('--track-origin', 'center');
+        root.style.setProperty('--track-height', '6px');
+        root.style.setProperty('--track-margin', '0');
+        leftIcon.style.setProperty('--left-icon-x', '0px');
+        rightIcon.style.setProperty('--right-icon-x', '0px');
+        leftIcon.style.setProperty('--left-icon-scale', '1');
+        rightIcon.style.setProperty('--right-icon-scale', '1');
+      }
+
+      wrapper.addEventListener('pointerenter', () => {
+        wrapper.classList.add('is-active');
+        root.style.setProperty('--track-height', '12px');
+        root.style.setProperty('--track-margin', '-3px');
+      });
+
+      wrapper.addEventListener('pointerleave', () => {
+        if (pointerId === null) release();
+      });
+
+      root.addEventListener('pointerdown', event => {
+        pointerId = event.pointerId;
+        wrapper.classList.add('is-active', 'is-dragging');
+        root.setPointerCapture(pointerId);
+        setElastic(event.clientX);
+      });
+
+      root.addEventListener('pointermove', event => {
+        if (pointerId !== event.pointerId) return;
+        setElastic(event.clientX);
+      });
+
+      root.addEventListener('pointerup', release);
+      root.addEventListener('pointercancel', release);
+      root.addEventListener('lostpointercapture', release);
+
+      root.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+          setValue(value - 1);
+          event.preventDefault();
+        }
+
+        if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+          setValue(value + 1);
+          event.preventDefault();
+        }
+
+        if (event.key === 'Home') {
+          setValue(0);
+          event.preventDefault();
+        }
+
+        if (event.key === 'End') {
+          setValue(100);
+          event.preventDefault();
+        }
+      });
+
+      setValue(value);
+    }
+
+    initTiltedCard();
+    initElasticSlider();
 
     const BLUE = new THREE.Color('#0081f7');
     const WHITE = new THREE.Color('#f2f8ff');
@@ -206,7 +645,7 @@
     const mainRing = new THREE.Mesh(geometry, makeMaterial(WHITE, 1.18, 0.06));
     group.add(mainRing);
 
-    group.position.set(0, -0.16, 0);
+    group.position.set(0, -2.22, 0);
 
     const clock = new THREE.Clock();
 
@@ -214,7 +653,7 @@
       const { width, height } = stage.getBoundingClientRect();
       renderer.setSize(width, height, false);
       const aspect = width / Math.max(height, 1);
-      const viewHeight = width < 520 ? 3.82 : 3.42;
+      const viewHeight = width < 520 ? 9.2 : 9.1;
       const viewWidth = viewHeight * aspect;
       camera.left = -viewWidth / 2;
       camera.right = viewWidth / 2;
