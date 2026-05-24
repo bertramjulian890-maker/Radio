@@ -90,6 +90,20 @@
       will-change: transform;
     }
 
+    .tilted-card-noise {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 15px;
+      mix-blend-mode: soft-light;
+      opacity: 0.46;
+      pointer-events: none;
+      transform: translateZ(1px);
+      image-rendering: pixelated;
+    }
+
     .tilted-card-overlay {
       position: absolute;
       left: 18px;
@@ -312,6 +326,7 @@
       <figure class="tilted-card-figure" id="tiltedCard">
         <div class="tilted-card-inner">
           <img class="tilted-card-img" src="assets/背面是我-2000.jpg" alt="背面是我 album cover" />
+          <canvas class="tilted-card-noise" id="tiltedCardNoise" aria-hidden="true"></canvas>
           <div class="tilted-card-overlay" aria-hidden="true">
             <p class="tilted-card-title">背面是我</p>
             <p class="tilted-card-meta">Marcus / personal radio</p>
@@ -400,6 +415,55 @@
       });
 
       tick();
+    }
+
+    function initCardNoise() {
+      const canvas = document.getElementById('tiltedCardNoise');
+      const card = canvas?.parentElement;
+      if (!canvas || !card) return;
+
+      const ctx = canvas.getContext('2d', { alpha: true });
+      if (!ctx) return;
+
+      let frame = 0;
+      let animationId = 0;
+      const patternAlpha = 18;
+      const logicalSize = 320;
+
+      function resize() {
+        canvas.width = logicalSize;
+        canvas.height = logicalSize;
+      }
+
+      function drawGrain() {
+        const imageData = ctx.createImageData(logicalSize, logicalSize);
+        const data = imageData.data;
+
+        for (let index = 0; index < data.length; index += 4) {
+          const value = Math.random() * 255;
+          data[index] = value;
+          data[index + 1] = value;
+          data[index + 2] = value;
+          data[index + 3] = patternAlpha;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      function loop() {
+        if (frame % 2 === 0) drawGrain();
+        frame += 1;
+        animationId = window.requestAnimationFrame(loop);
+      }
+
+      resize();
+      loop();
+      window.addEventListener('resize', resize);
+
+      return () => {
+        window.removeEventListener('resize', resize);
+        window.cancelAnimationFrame(animationId);
+      };
     }
 
     function initElasticSlider() {
@@ -524,6 +588,7 @@
     }
 
     initTiltedCard();
+    initCardNoise();
     initElasticSlider();
 
     const BLUE = new THREE.Color('#0081f7');
