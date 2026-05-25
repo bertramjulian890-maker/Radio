@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev-server.mjs",
     "validate": "node scripts/validate.mjs",
     "install:design-md": "node scripts/install-design-md.mjs"
   }

@@ -1,17 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blue Record Components</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <title>个人电台</title>
   <style>
     :root {
       color-scheme: light;
       --blue: #0081f7;
       --soft-blue: #78c6ff;
       --white: #f5f9ff;
-      --muted: rgba(245, 249, 255, 0.72);
-      --track: rgba(255, 255, 255, 0.38);
+      --muted: rgba(245, 249, 255, 0.68);
+      --track: rgba(255, 255, 255, 0.36);
+      --ink: rgba(4, 19, 42, 0.52);
+      --panel: rgba(6, 45, 95, 0.26);
+      --caramel: #d9894a;
+      --caramel-soft: #eec299;
+      /* Grainient background knobs */
+      --grainient-color-1: #0647ff;
+      --grainient-color-2: #33b8ff;
+      --grainient-color-3: #031fb9;
+      --grainient-grain-alpha: 38;
+      --grainient-speed: 0.22;
+      --grainient-noise-scale: 1.35;
     }
 
     * {
@@ -30,7 +42,7 @@
     body {
       display: grid;
       place-items: center;
-      font-family: "Bricolage Grotesque", "Avenir Next", "Helvetica Neue", sans-serif;
+      font-family: "Avenir Next", "Helvetica Neue", "PingFang SC", sans-serif;
     }
 
     .scene-page {
@@ -38,24 +50,41 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--blue);
+      background:
+        radial-gradient(circle at 22% 18%, color-mix(in srgb, var(--grainient-color-2), white 10%), transparent 32%),
+        radial-gradient(circle at 84% 22%, color-mix(in srgb, var(--grainient-color-3), black 4%), transparent 34%),
+        linear-gradient(135deg, var(--grainient-color-1), var(--grainient-color-3));
       isolation: isolate;
     }
 
-    .component-stack {
-      position: relative;
-      z-index: 2;
-      display: grid;
-      place-items: center;
-      gap: clamp(26px, 4vh, 42px);
+    .grainient-background {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
       width: 100%;
-      padding-top: clamp(52px, 8vh, 90px);
+      height: 100%;
       pointer-events: none;
     }
 
-    .tilted-card-figure,
-    .slider-container {
-      pointer-events: auto;
+    .radio-layout {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(320px, 520px);
+      gap: clamp(34px, 6vw, 88px);
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: calc(100% - clamp(240px, 36vh, 360px));
+      max-height: calc(100% - clamp(240px, 36vh, 360px));
+      min-height: 0;
+      padding: clamp(28px, 5vh, 58px) clamp(24px, 6vw, 72px) 12px;
+    }
+
+    .album-stack {
+      display: grid;
+      place-items: center;
+      gap: 24px;
     }
 
     .tilted-card-figure {
@@ -85,9 +114,15 @@
       height: 100%;
       object-fit: cover;
       border-radius: 15px;
-      box-shadow: 0 28px 90px rgba(0, 39, 96, 0.32);
+      box-shadow: 0 30px 96px rgba(0, 39, 96, 0.35);
       transform: translateZ(0);
       will-change: transform;
+      transition: opacity 400ms ease;
+    }
+
+    .radio-meta p,
+    .radio-meta h1 {
+      transition: opacity 300ms ease;
     }
 
     .tilted-card-noise {
@@ -98,55 +133,168 @@
       height: 100%;
       border-radius: 15px;
       mix-blend-mode: soft-light;
-      opacity: 0.46;
+      opacity: 0.42;
       pointer-events: none;
       transform: translateZ(1px);
       image-rendering: pixelated;
     }
 
-    .tilted-card-overlay {
-      position: absolute;
-      left: 18px;
-      bottom: 16px;
-      z-index: 2;
+    .player-controls {
       display: grid;
-      gap: 4px;
-      color: #fff;
-      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
-      transform: translateZ(30px);
-      will-change: transform;
+      gap: 18px;
+      place-items: center;
+      width: min(76vw, 360px);
     }
 
-    .tilted-card-title {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 800;
-      line-height: 1;
+    .play-row {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 76px;
+      gap: 14px;
+      align-items: center;
+      width: 100%;
+      padding: 2px 0;
+      background: transparent;
     }
 
-    .tilted-card-meta {
-      margin: 0;
-      color: rgba(255, 255, 255, 0.74);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .glass-surface {
+      position: relative;
+      isolation: auto;
     }
 
-    .tilted-card-caption {
-      pointer-events: none;
+    .glass-surface::before {
+      content: none;
+    }
+
+    .play-button {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--white);
+      cursor: pointer;
+      font-size: 18px;
+      box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.34) inset;
+      transition:
+        transform 180ms ease,
+        background 180ms ease;
+    }
+
+    .play-button:hover {
+      transform: scale(1.06);
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    .progress-root {
+      position: relative;
+      --progress: 0%;
+      height: 34px;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    .progress-track {
       position: absolute;
       left: 0;
-      top: 0;
-      z-index: 3;
-      padding: 4px 10px;
-      border-radius: 4px;
-      background-color: #fff;
-      color: #2d2d2d;
-      font-size: 10px;
-      font-weight: 700;
+      right: 0;
+      top: 50%;
+      height: 8px;
+      overflow: hidden;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.16)),
+        rgba(255, 255, 255, 0.18);
+    }
+
+    .progress-fill {
+      display: block;
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #fff, rgba(190, 226, 255, 0.92));
+      box-shadow: 0 0 18px rgba(255, 255, 255, 0.42);
+    }
+
+    .progress-thumb {
+      position: absolute;
+      left: var(--progress);
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%) scale(0.82);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow:
+        0 0 0 5px rgba(255, 255, 255, 0.18),
+        0 0 24px rgba(255, 255, 255, 0.44);
       opacity: 0;
-      transform: translate3d(0, 0, 0) rotate(0deg);
-      will-change: transform, opacity;
+      transition:
+        opacity 160ms ease,
+        transform 180ms cubic-bezier(0.18, 0.9, 0.22, 1.22);
+    }
+
+    .progress-root:hover .progress-thumb,
+    .progress-root:focus-visible .progress-thumb,
+    .progress-root.is-dragging .progress-thumb {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .time-readout {
+      color: var(--muted);
+      font-family: "SFMono-Regular", "Menlo", monospace;
+      font-size: 12px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .counter-container {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .counter-counter {
+      display: flex;
+      overflow: hidden;
+      line-height: 1;
+      direction: ltr;
+    }
+
+    .counter-digit {
+      position: relative;
+      width: 1ch;
+      height: 1.1em;
+      overflow: hidden;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .counter-char {
+      width: auto;
+      min-width: 0.62ch;
+    }
+
+    .counter-number-stack {
+      position: absolute;
+      inset: 0;
+      transition: transform 420ms cubic-bezier(0.18, 0.9, 0.22, 1.08);
+    }
+
+    .counter-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 1.1em;
+    }
+
+    .counter-gradient {
+      display: none;
     }
 
     .slider-container {
@@ -264,9 +412,150 @@
       letter-spacing: 0.05em;
     }
 
+    .text-stage {
+      display: grid;
+      gap: 22px;
+      color: var(--white);
+    }
+
+    .radio-meta {
+      display: grid;
+      gap: 8px;
+    }
+
+    .radio-meta p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .radio-meta h1 {
+      margin: 0;
+      font-size: clamp(36px, 5vw, 74px);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .sync-card {
+      --mouse-x: 50%;
+      --mouse-y: 50%;
+      --spotlight-color: rgba(255, 255, 255, 0.18);
+      position: relative;
+      min-height: 292px;
+      display: grid;
+      align-content: center;
+      gap: 18px;
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 39, 96, 0.18);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+
+    .sync-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at var(--mouse-x) var(--mouse-y), var(--spotlight-color), transparent 80%);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+
+    .sync-card:hover::before,
+    .sync-card:focus-within::before {
+      opacity: 0.72;
+    }
+
+    .sync-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sync-label {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.54);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .sync-main {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 38px);
+      font-weight: 800;
+      line-height: 1.18;
+      letter-spacing: 0;
+      transition:
+        opacity 220ms ease,
+        transform 220ms ease;
+    }
+
+    .sync-main.is-changing {
+      opacity: 0.24;
+      transform: translateY(10px);
+    }
+
+    .sync-lyrics {
+      display: grid;
+      gap: 8px;
+      min-height: 36px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .sync-card[data-mode="voice"] .sync-lyrics {
+      display: none;
+    }
+
+    .sync-card[data-mode="lyrics"] .sync-main {
+      font-size: clamp(25px, 3.1vw, 42px);
+      color: #fff;
+    }
+
+    .sync-card[data-mode="lyrics"] .sync-main.is-lyric-line {
+      color: #fff;
+    }
+
+    .sync-main .lyric-char {
+      transition:
+        color 160ms ease,
+        text-shadow 160ms ease;
+    }
+
+    .sync-main .lyric-char.is-played {
+      color: var(--caramel);
+      text-shadow: 0 0 20px color-mix(in srgb, var(--caramel-soft) 55%, transparent);
+    }
+
+    .lyric-line {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.32);
+      font-size: clamp(15px, 1.7vw, 20px);
+      line-height: 1.55;
+      transition:
+        color 220ms ease,
+        transform 220ms ease,
+        opacity 220ms ease;
+    }
+
+    .lyric-line.is-active {
+      color: #fff;
+      opacity: 1;
+      font-weight: 700;
+    }
+
+    .lyric-line.is-near {
+      color: rgba(255, 255, 255, 0.62);
+    }
+
     .torus-stage {
       position: absolute;
-      inset: auto 0 0;
+      inset: 0 0 auto;
       z-index: 1;
       width: 100%;
       height: clamp(150px, 24vh, 250px);
@@ -277,6 +566,77 @@
       display: block;
       width: 100%;
       height: 100%;
+    }
+
+    .circular-gallery-stage {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 4;
+      width: 100%;
+      height: clamp(240px, 36vh, 360px);
+      pointer-events: auto;
+    }
+
+    .circular-gallery {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: grab;
+    }
+
+    .gallery-captions {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .gallery-caption {
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: #f5f9ff;
+      display: grid;
+      gap: 3px;
+      justify-items: center;
+      white-space: nowrap;
+      transform: translate(-50%, 0);
+      transition: opacity 120ms linear;
+      text-shadow: 0 2px 12px rgba(0, 24, 64, 0.35);
+    }
+
+    .gallery-caption-track {
+      color: rgba(245, 249, 255, 0.68);
+      font-family: "Azeret Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+
+    .gallery-caption-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .circular-gallery:active {
+      cursor: grabbing;
+    }
+
+    .circular-gallery canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .circular-gallery::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
     }
 
     .scene-page::after {
@@ -294,10 +654,32 @@
       opacity: 0.52;
     }
 
+    @media (max-width: 880px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .scene-page {
+        min-height: 100vh;
+        overflow: hidden;
+      }
+
+      .radio-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: calc(100vh - 160px);
+        padding-bottom: 210px;
+      }
+
+      .text-stage {
+        width: min(88vw, 520px);
+      }
+    }
+
     @media (max-width: 640px) {
-      .component-stack {
-        gap: 24px;
-        padding-top: 44px;
+      .radio-layout {
+        padding-top: 36px;
       }
 
       .tilted-card-figure,
@@ -306,83 +688,412 @@
         height: min(76vw, 280px);
       }
 
-      .tilted-card-caption {
-        display: none;
+      .play-row {
+        grid-template-columns: 48px minmax(0, 1fr);
+      }
+
+      .time-readout {
+        grid-column: 1 / -1;
+        text-align: center;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .slider-wrapper,
       .slider-track-wrapper,
-      .tilted-card-inner {
+      .tilted-card-inner,
+      .sync-main,
+      .lyric-line {
         transition: none;
       }
     }
+
+    .file-protocol-banner {
+      position: fixed;
+      inset: 0 auto auto 0;
+      z-index: 20;
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(4, 19, 42, 0.88);
+      color: #f5f9ff;
+      font-size: 14px;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+    }
+
+    .file-protocol-banner a {
+      color: #78c6ff;
+    }
   </style>
+  <script>
+    if (window.location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const banner = document.createElement('div');
+        banner.className = 'file-protocol-banner';
+        banner.innerHTML = 'Chrome 无法通过 file:// 正常加载本地资源。请在 <code>radio-prototype</code> 目录运行 <code>npm run dev</code>，然后打开终端里显示的 localhost 地址。';
+        document.body.prepend(banner);
+      });
+    }
+  </script>
 </head>
 <body>
-  <main class="scene-page" aria-label="Blue record component scene">
-    <section class="component-stack" aria-label="Interactive music controls">
-      <figure class="tilted-card-figure" id="tiltedCard">
-        <div class="tilted-card-inner">
-          <img class="tilted-card-img" src="assets/背面是我-2000.jpg" alt="背面是我 album cover" />
-          <canvas class="tilted-card-noise" id="tiltedCardNoise" aria-hidden="true"></canvas>
-          <div class="tilted-card-overlay" aria-hidden="true">
-            <p class="tilted-card-title">背面是我</p>
-            <p class="tilted-card-meta">Marcus / personal radio</p>
+  <main class="scene-page" aria-label="个人电台播放器">
+    <canvas class="grainient-background" id="grainientBackground" aria-hidden="true"></canvas>
+    <section class="radio-layout">
+      <div class="album-stack">
+        <figure class="tilted-card-figure" id="tiltedCard">
+          <div class="tilted-card-inner">
+            <img class="tilted-card-img" id="coverImg" src="../radio_productions/selimang_20260524/output/cover.jpg" alt="色盲 album cover" />
+            <canvas class="tilted-card-noise" id="tiltedCardNoise" aria-hidden="true"></canvas>
           </div>
-        </div>
-        <figcaption class="tilted-card-caption">背面是我 - Marcus</figcaption>
-      </figure>
+        </figure>
 
-      <div class="slider-container">
-        <div class="slider-wrapper" id="elasticSlider">
-          <span class="slider-icon is-left" aria-hidden="true">−</span>
-          <div class="slider-root" id="sliderRoot" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
-            <div class="slider-track-wrapper">
-              <div class="slider-track">
-                <div class="slider-range" id="sliderRange"></div>
-              </div>
+        <div class="player-controls">
+          <div class="play-row glass-surface">
+            <button class="play-button" id="playButton" type="button" aria-label="播放">▶</button>
+            <div class="progress-root" id="progressRoot" aria-label="播放进度" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+              <span class="progress-track"><span class="progress-fill" id="progressFill"></span></span>
+              <span class="progress-thumb" aria-hidden="true"></span>
             </div>
+            <span class="time-readout" id="timeReadout" aria-label="播放时间"></span>
           </div>
-          <span class="slider-icon is-right" aria-hidden="true">＋</span>
+
+          <div class="slider-container">
+            <div class="slider-wrapper" id="elasticSlider">
+              <span class="slider-icon is-left" aria-hidden="true">−</span>
+              <div class="slider-root" id="sliderRoot" role="slider" aria-label="音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+                <div class="slider-track-wrapper">
+                  <div class="slider-track">
+                    <div class="slider-range" id="sliderRange"></div>
+                  </div>
+                </div>
+              </div>
+              <span class="slider-icon is-right" aria-hidden="true">＋</span>
+            </div>
+            <p class="value-indicator" id="sliderValue">50</p>
+          </div>
         </div>
-        <p class="value-indicator" id="sliderValue">50</p>
       </div>
+
+      <section class="text-stage" aria-label="字幕与歌词">
+        <div class="radio-meta">
+          <p id="radioArtist">裘德 / 徐佳莹</p>
+          <h1 id="radioTitle">色盲</h1>
+        </div>
+
+        <div class="sync-card" id="syncCard" data-mode="voice">
+          <p class="sync-main" id="syncMain">正在加载…</p>
+          <div class="sync-lyrics" id="syncLyrics" aria-hidden="true">
+            <p class="lyric-line is-near" data-lyric-slot="0">茶绯红 光线太胡闹</p>
+          </div>
+        </div>
+      </section>
     </section>
 
+    <audio id="radioAudio" preload="metadata"></audio>
+    <div class="circular-gallery-stage" aria-hidden="false">
+      <div class="circular-gallery" id="circularGallery"></div>
+    </div>
     <div class="torus-stage" id="torusStage"></div>
   </main>
 
+  <script src="./playlist.js"></script>
+  <script src="./circular-gallery.js"></script>
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+
+    function formatTime(value) {
+      if (!Number.isFinite(value)) return '0:00';
+      const minutes = Math.floor(value / 60);
+      const seconds = Math.floor(value % 60).toString().padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
+    function cssVariable(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function hexToRgb(hex) {
+      const normalized = hex.replace('#', '').trim();
+      const value = normalized.length === 3
+        ? normalized.split('').map(char => char + char).join('')
+        : normalized;
+      const parsed = Number.parseInt(value, 16);
+      return {
+        r: (parsed >> 16) & 255,
+        g: (parsed >> 8) & 255,
+        b: parsed & 255
+      };
+    }
+
+    function mixColor(a, b, t) {
+      return {
+        r: a.r + (b.r - a.r) * t,
+        g: a.g + (b.g - a.g) * t,
+        b: a.b + (b.b - a.b) * t
+      };
+    }
+
+    function colorString(color) {
+      return `rgb(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)})`;
+    }
+
+    function initGrainientBackground() {
+      const canvas = document.getElementById('grainientBackground');
+      if (!canvas) return;
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: false,
+        antialias: false,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.Camera();
+      const geometry = new THREE.PlaneGeometry(2, 2);
+
+      const uniforms = {
+        iResolution: { value: new THREE.Vector2(1, 1) },
+        iTime: { value: 0 },
+        uTimeSpeed: { value: 0.28 },
+        uColorBalance: { value: 0 },
+        uWarpStrength: { value: 1.18 },
+        uWarpFrequency: { value: 4.2 },
+        uWarpSpeed: { value: 2.35 },
+        uWarpAmplitude: { value: 36 },
+        uBlendAngle: { value: 34 },
+        uBlendSoftness: { value: 0.1 },
+        uRotationAmount: { value: 460 },
+        uNoiseScale: { value: 1.42 },
+        uGrainAmount: { value: 0.075 },
+        uGrainScale: { value: 2.1 },
+        uGrainPixelSize: { value: 1.45 },
+        uGrainAnimated: { value: 1 },
+        uContrast: { value: 1.08 },
+        uGamma: { value: 1 },
+        uSaturation: { value: 1.08 },
+        uCenterOffset: { value: new THREE.Vector2(0.06, -0.03) },
+        uZoom: { value: 0.68 },
+        uColor1: { value: new THREE.Color(cssVariable('--grainient-color-2') || '#61c7ff') },
+        uColor2: { value: new THREE.Color(cssVariable('--grainient-color-1') || '#0081f7') },
+        uColor3: { value: new THREE.Color(cssVariable('--grainient-color-3') || '#0753c7') }
+      };
+
+      const material = new THREE.ShaderMaterial({
+        depthTest: false,
+        depthWrite: false,
+        uniforms,
+        vertexShader: `
+          void main() {
+            gl_Position = vec4(position.xy, 0.0, 1.0);
+          }
+        `,
+        fragmentShader: `
+          precision highp float;
+          uniform vec2 iResolution;
+          uniform float iTime;
+          uniform float uTimeSpeed;
+          uniform float uColorBalance;
+          uniform float uWarpStrength;
+          uniform float uWarpFrequency;
+          uniform float uWarpSpeed;
+          uniform float uWarpAmplitude;
+          uniform float uBlendAngle;
+          uniform float uBlendSoftness;
+          uniform float uRotationAmount;
+          uniform float uNoiseScale;
+          uniform float uGrainAmount;
+          uniform float uGrainScale;
+          uniform float uGrainPixelSize;
+          uniform float uGrainAnimated;
+          uniform float uContrast;
+          uniform float uGamma;
+          uniform float uSaturation;
+          uniform vec2 uCenterOffset;
+          uniform float uZoom;
+          uniform vec3 uColor1;
+          uniform vec3 uColor2;
+          uniform vec3 uColor3;
+
+          #define S(a,b,t) smoothstep(a,b,t)
+
+          mat2 Rot(float a) {
+            float s = sin(a), c = cos(a);
+            return mat2(c, -s, s, c);
+          }
+
+          vec2 hash(vec2 p) {
+            p = vec2(dot(p, vec2(2127.1, 81.17)), dot(p, vec2(1269.5, 283.37)));
+            return fract(sin(p) * 43758.5453);
+          }
+
+          float noise(vec2 p) {
+            vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+            float n = mix(
+              mix(
+                dot(-1.0 + 2.0 * hash(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0)),
+                dot(-1.0 + 2.0 * hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)),
+                u.x
+              ),
+              mix(
+                dot(-1.0 + 2.0 * hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)),
+                dot(-1.0 + 2.0 * hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)),
+                u.x
+              ),
+              u.y
+            );
+            return 0.5 + 0.5 * n;
+          }
+
+          void main() {
+            float t = iTime * uTimeSpeed;
+            vec2 uv = gl_FragCoord.xy / iResolution.xy;
+            float ratio = iResolution.x / iResolution.y;
+            vec2 tuv = uv - 0.5 + uCenterOffset;
+            tuv /= max(uZoom, 0.001);
+
+            float degree = noise(vec2(t * 0.1, tuv.x * tuv.y) * uNoiseScale);
+            tuv.y *= 1.0 / ratio;
+            tuv *= Rot(radians((degree - 0.5) * uRotationAmount + 180.0));
+            tuv.y *= ratio;
+
+            float frequency = uWarpFrequency;
+            float ws = max(uWarpStrength, 0.001);
+            float amplitude = uWarpAmplitude / ws;
+            float warpTime = t * uWarpSpeed;
+            tuv.x += sin(tuv.y * frequency + warpTime) / amplitude;
+            tuv.y += sin(tuv.x * (frequency * 1.5) + warpTime) / (amplitude * 0.5);
+
+            float b = uColorBalance;
+            float s = max(uBlendSoftness, 0.0);
+            mat2 blendRot = Rot(radians(uBlendAngle));
+            float blendX = (tuv * blendRot).x;
+            float edge0 = -0.62 - b - s;
+            float edge1 = 0.42 - b + s;
+            float v0 = 0.7 - b + s;
+            float v1 = -0.58 - b - s;
+            vec3 layer1 = mix(uColor3, uColor2, S(edge0, edge1, blendX));
+            vec3 layer2 = mix(uColor2, uColor1, S(edge0, edge1, blendX));
+            vec3 col = mix(layer1, layer2, S(v0, v1, tuv.y));
+            vec2 grainUv = floor(gl_FragCoord.xy / max(uGrainPixelSize, 1.0));
+            grainUv *= max(uGrainScale, 0.001);
+            if (uGrainAnimated > 0.5) grainUv += floor(vec2(iTime * 8.0));
+            float grain = fract(sin(dot(grainUv, vec2(12.9898, 78.233))) * 43758.5453);
+            col += (grain - 0.5) * uGrainAmount;
+
+            col = (col - 0.5) * uContrast + 0.5;
+            float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+            col = mix(vec3(luma), col, uSaturation);
+            col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.001)));
+            gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+          }
+        `
+      });
+
+      scene.add(new THREE.Mesh(geometry, material));
+
+      let animationFrame = 0;
+      const startTime = performance.now();
+
+      function syncColors() {
+        uniforms.uColor1.value.set(cssVariable('--grainient-color-2') || '#61c7ff');
+        uniforms.uColor2.value.set(cssVariable('--grainient-color-1') || '#0081f7');
+        uniforms.uColor3.value.set(cssVariable('--grainient-color-3') || '#0753c7');
+      }
+
+      function resize() {
+        const width = Math.max(1, canvas.clientWidth);
+        const height = Math.max(1, canvas.clientHeight);
+        renderer.setSize(width, height, false);
+        uniforms.iResolution.value.set(canvas.width, canvas.height);
+        syncColors();
+      }
+
+      function render(now) {
+        uniforms.iTime.value = (now - startTime) * 0.001;
+        syncColors();
+        renderer.render(scene, camera);
+        animationFrame = window.requestAnimationFrame(render);
+      }
+
+      resize();
+      render(startTime);
+
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(canvas);
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && animationFrame) {
+          window.cancelAnimationFrame(animationFrame);
+          animationFrame = 0;
+        } else if (!document.hidden && !animationFrame) {
+          animationFrame = window.requestAnimationFrame(render);
+        }
+      });
+    }
+
+    function renderCounter(element, value) {
+      const text = String(value);
+      if (element.dataset.counterValue === text) return;
+      const previous = element.dataset.counterValue || '';
+      element.dataset.counterValue = text;
+
+      element.innerHTML = `<span class="counter-container"><span class="counter-counter"></span><span class="counter-gradient"></span></span>`;
+      const counter = element.querySelector('.counter-counter');
+
+      [...text].forEach((char, index) => {
+        const digit = document.createElement('span');
+        digit.className = char >= '0' && char <= '9' ? 'counter-digit' : 'counter-digit counter-char';
+
+        if (char >= '0' && char <= '9') {
+          const stack = document.createElement('span');
+          stack.className = 'counter-number-stack';
+          for (let number = 0; number < 10; number += 1) {
+            const item = document.createElement('span');
+            item.className = 'counter-number';
+            item.textContent = String(number);
+            stack.appendChild(item);
+          }
+          const previousChar = previous[index];
+          const start = previousChar >= '0' && previousChar <= '9' ? Number(previousChar) : Number(char);
+          stack.style.transform = `translateY(${-start * 1.1}em)`;
+          digit.appendChild(stack);
+          counter.appendChild(digit);
+          requestAnimationFrame(() => {
+            stack.style.transform = `translateY(${-Number(char) * 1.1}em)`;
+          });
+        } else {
+          digit.textContent = char;
+          counter.appendChild(digit);
+        }
+      });
+    }
+
+    function initSpotlightCard() {
+      const card = document.getElementById('syncCard');
+      if (!card) return;
+      card.addEventListener('pointermove', event => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', `${event.clientX - rect.left}px`);
+        card.style.setProperty('--mouse-y', `${event.clientY - rect.top}px`);
+        card.style.setProperty('--spotlight-color', 'rgba(255, 255, 255, 0.22)');
+      });
+    }
 
     function initTiltedCard() {
       const figure = document.getElementById('tiltedCard');
       const inner = figure?.querySelector('.tilted-card-inner');
-      const caption = figure?.querySelector('.tilted-card-caption');
-      if (!figure || !inner || !caption) return;
+      if (!figure || !inner) return;
 
-      const state = {
-        rotateX: 0,
-        rotateY: 0,
-        scale: 1,
-        captionX: 0,
-        captionY: 0,
-        captionOpacity: 0,
-        captionRotate: 0
-      };
+      const state = { rotateX: 0, rotateY: 0, scale: 1 };
       const target = { ...state };
-      let lastY = 0;
 
       function tick() {
-        for (const key of Object.keys(state)) {
-          state[key] += (target[key] - state[key]) * 0.16;
-        }
-
+        for (const key of Object.keys(state)) state[key] += (target[key] - state[key]) * 0.16;
         inner.style.transform = `rotateX(${state.rotateX}deg) rotateY(${state.rotateY}deg) scale(${state.scale})`;
-        caption.style.opacity = state.captionOpacity.toFixed(3);
-        caption.style.transform = `translate3d(${state.captionX}px, ${state.captionY}px, 0) rotate(${state.captionRotate}deg)`;
         requestAnimationFrame(tick);
       }
 
@@ -390,28 +1101,18 @@
         const rect = figure.getBoundingClientRect();
         const offsetX = event.clientX - rect.left - rect.width / 2;
         const offsetY = event.clientY - rect.top - rect.height / 2;
-        const rotateAmplitude = 14;
-        const velocityY = offsetY - lastY;
-
-        target.rotateX = (offsetY / (rect.height / 2)) * -rotateAmplitude;
-        target.rotateY = (offsetX / (rect.width / 2)) * rotateAmplitude;
-        target.captionX = event.clientX - rect.left;
-        target.captionY = event.clientY - rect.top;
-        target.captionRotate = -velocityY * 0.6;
-        lastY = offsetY;
+        target.rotateX = (offsetY / (rect.height / 2)) * -14;
+        target.rotateY = (offsetX / (rect.width / 2)) * 14;
       });
 
       figure.addEventListener('pointerenter', () => {
-        target.scale = 1.1;
-        target.captionOpacity = 1;
+        target.scale = 1.08;
       });
 
       figure.addEventListener('pointerleave', () => {
         target.rotateX = 0;
         target.rotateY = 0;
         target.scale = 1;
-        target.captionOpacity = 0;
-        target.captionRotate = 0;
       });
 
       tick();
@@ -419,15 +1120,12 @@
 
     function initCardNoise() {
       const canvas = document.getElementById('tiltedCardNoise');
-      const card = canvas?.parentElement;
-      if (!canvas || !card) return;
-
+      if (!canvas) return;
       const ctx = canvas.getContext('2d', { alpha: true });
       if (!ctx) return;
 
       let frame = 0;
-      let animationId = 0;
-      const patternAlpha = 18;
+      const patternAlpha = 16;
       const logicalSize = 320;
 
       function resize() {
@@ -438,7 +1136,6 @@
       function drawGrain() {
         const imageData = ctx.createImageData(logicalSize, logicalSize);
         const data = imageData.data;
-
         for (let index = 0; index < data.length; index += 4) {
           const value = Math.random() * 255;
           data[index] = value;
@@ -446,27 +1143,21 @@
           data[index + 2] = value;
           data[index + 3] = patternAlpha;
         }
-
         ctx.putImageData(imageData, 0, 0);
       }
 
       function loop() {
         if (frame % 2 === 0) drawGrain();
         frame += 1;
-        animationId = window.requestAnimationFrame(loop);
+        window.requestAnimationFrame(loop);
       }
 
       resize();
       loop();
       window.addEventListener('resize', resize);
-
-      return () => {
-        window.removeEventListener('resize', resize);
-        window.cancelAnimationFrame(animationId);
-      };
     }
 
-    function initElasticSlider() {
+    function initElasticSlider(audio, onVolumeChange) {
       const wrapper = document.getElementById('elasticSlider');
       const root = document.getElementById('sliderRoot');
       const range = document.getElementById('sliderRange');
@@ -489,6 +1180,7 @@
         range.style.width = `${value}%`;
         valueLabel.textContent = String(value);
         root.setAttribute('aria-valuenow', String(value));
+        onVolumeChange(value / 100);
       }
 
       function setElastic(clientX) {
@@ -567,17 +1259,14 @@
           setValue(value - 1);
           event.preventDefault();
         }
-
         if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
           setValue(value + 1);
           event.preventDefault();
         }
-
         if (event.key === 'Home') {
           setValue(0);
           event.preventDefault();
         }
-
         if (event.key === 'End') {
           setValue(100);
           event.preventDefault();
@@ -587,9 +1276,547 @@
       setValue(value);
     }
 
+    function initRadioPlayer() {
+      const audio        = document.getElementById('radioAudio');
+      const playButton   = document.getElementById('playButton');
+      const progressRoot = document.getElementById('progressRoot');
+      const progressFill = document.getElementById('progressFill');
+      const timeReadout  = document.getElementById('timeReadout');
+      const syncCard     = document.getElementById('syncCard');
+      const syncMain     = document.getElementById('syncMain');
+      const coverImg     = document.getElementById('coverImg');
+      const radioTitle   = document.getElementById('radioTitle');
+      const radioArtist  = document.getElementById('radioArtist');
+      const lyricSlots   = [...document.querySelectorAll('[data-lyric-slot]')];
+
+      // ── Episode state ──────────────────────────────────────────────
+      let episodeIndex    = 0;
+      let episode         = PLAYLIST[0];
+      let narrationEnd    = episode.subtitleCues.at(-1).end;
+      let displayKey      = 'intro';
+      let lyricIndex      = -1;
+      let progressPointerId = null;
+      let resolvedDuration  = null;
+
+      function estimateEpisodeDuration(ep) {
+        if (Number.isFinite(ep.duration) && ep.duration > 0) return ep.duration;
+        const lyricEnd = ep.lyricLines?.at(-1)?.time ?? 0;
+        const subtitleEnd = ep.subtitleCues?.at(-1)?.end ?? 0;
+        return Math.max(lyricEnd, subtitleEnd) + 20;
+      }
+
+      function getPlaybackDuration() {
+        const mediaDuration = audio.duration;
+        if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
+        if (Number.isFinite(resolvedDuration) && resolvedDuration > 0) return resolvedDuration;
+        return estimateEpisodeDuration(episode);
+      }
+
+      function probeDuration() {
+        const mediaDuration = audio.duration;
+        if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
+          resolvedDuration = mediaDuration;
+          return;
+        }
+
+        const savedTime = audio.currentTime;
+        audio.currentTime = 1e101;
+        const measured = audio.currentTime;
+        audio.currentTime = savedTime;
+
+        if (Number.isFinite(measured) && measured > 0) {
+          resolvedDuration = measured;
+          return;
+        }
+
+        resolvedDuration = estimateEpisodeDuration(episode);
+      }
+
+      // ── Volume state (slider controls sliderVolume; transitions scale it) ──
+      let sliderVolume    = 0.5;
+      let episodeGain     = 1;   // 1 = full, fades to 0 during transition
+
+      function applyVolume() {
+        audio.volume = Math.max(0, Math.min(1, sliderVolume * episodeGain));
+      }
+
+      // ── Theme helpers ──────────────────────────────────────────────
+      const fallbackThemeColor = { r: 0, g: 129, b: 247 };
+      const coverThemeCache = new Map();
+      let themeRequestId = 0;
+
+      function clampByte(value) {
+        return Math.max(0, Math.min(255, Math.round(value)));
+      }
+
+      function rgbToCss(color) {
+        return `rgb(${clampByte(color.r)}, ${clampByte(color.g)}, ${clampByte(color.b)})`;
+      }
+
+      function mixRgb(a, b, t) {
+        return {
+          r: a.r + (b.r - a.r) * t,
+          g: a.g + (b.g - a.g) * t,
+          b: a.b + (b.b - a.b) * t,
+        };
+      }
+
+      function luma(color) {
+        return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+      }
+
+      function saturation(color) {
+        const max = Math.max(color.r, color.g, color.b);
+        const min = Math.min(color.r, color.g, color.b);
+        return max === 0 ? 0 : (max - min) / max;
+      }
+
+      function normalizeThemeColor(color) {
+        const lightness = luma(color);
+        const sat = saturation(color);
+        if (sat < 0.16) {
+          const silver = Math.max(86, Math.min(188, lightness));
+          return { r: silver, g: silver, b: silver };
+        }
+        if (lightness < 58) return mixRgb(color, { r: 255, g: 255, b: 255 }, 0.18);
+        if (lightness > 206) return mixRgb(color, { r: 0, g: 0, b: 0 }, 0.2);
+        return color;
+      }
+
+      function loadCoverForAnalysis(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      }
+
+      function extractColorFromImage(img) {
+        const size = 72;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return fallbackThemeColor;
+
+        ctx.drawImage(img, 0, 0, size, size);
+        const { data } = ctx.getImageData(0, 0, size, size);
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let weightSum = 0;
+
+        for (let y = 0; y < size; y += 1) {
+          for (let x = 0; x < size; x += 1) {
+            const index = (y * size + x) * 4;
+            const alpha = data[index + 3];
+            if (alpha < 180) continue;
+
+            const pixel = {
+              r: data[index],
+              g: data[index + 1],
+              b: data[index + 2],
+            };
+            const lum = luma(pixel);
+            if (lum < 12 || lum > 244) continue;
+
+            const dx = (x + 0.5) / size - 0.5;
+            const dy = (y + 0.5) / size - 0.5;
+            const centerWeight = 1 + Math.max(0, 0.55 - Math.hypot(dx, dy)) * 1.5;
+            const colorWeight = 0.76 + saturation(pixel) * 1.35;
+            const weight = centerWeight * colorWeight;
+            r += pixel.r * weight;
+            g += pixel.g * weight;
+            b += pixel.b * weight;
+            weightSum += weight;
+          }
+        }
+
+        if (!weightSum) return fallbackThemeColor;
+        return normalizeThemeColor({ r: r / weightSum, g: g / weightSum, b: b / weightSum });
+      }
+
+      async function coverThemeColor(ep) {
+        if (coverThemeCache.has(ep.id)) return coverThemeCache.get(ep.id);
+
+        try {
+          const img = await loadCoverForAnalysis(ep.cover);
+          const color = extractColorFromImage(img);
+          coverThemeCache.set(ep.id, color);
+          return color;
+        } catch {
+          coverThemeCache.set(ep.id, fallbackThemeColor);
+          return fallbackThemeColor;
+        }
+      }
+
+      async function applyEpisodeTheme(ep) {
+        const requestId = themeRequestId + 1;
+        themeRequestId = requestId;
+        const base = await coverThemeColor(ep);
+        if (requestId !== themeRequestId) return;
+
+        const rootStyle = document.documentElement.style;
+        const deep = mixRgb(base, { r: 0, g: 0, b: 0 }, 0.52);
+        const lift = mixRgb(base, { r: 255, g: 255, b: 255 }, saturation(base) < 0.16 ? 0.36 : 0.22);
+        const shade = mixRgb(base, { r: 0, g: 0, b: 0 }, saturation(base) < 0.16 ? 0.28 : 0.36);
+
+        rootStyle.setProperty('--blue', rgbToCss(base));
+        rootStyle.setProperty('--grainient-color-1', rgbToCss(base));
+        rootStyle.setProperty('--grainient-color-2', rgbToCss(lift));
+        rootStyle.setProperty('--grainient-color-3', rgbToCss(deep));
+        rootStyle.setProperty('--panel', `rgba(${clampByte(shade.r)}, ${clampByte(shade.g)}, ${clampByte(shade.b)}, 0.30)`);
+      }
+
+      // ── Episode transition engine ──────────────────────────────────
+      let transition = null; // active transition descriptor
+
+      function setEpisodeVisuals(ep) {
+        coverImg.src = ep.cover;
+        coverImg.alt = `${ep.title} album cover`;
+        radioTitle.textContent = ep.title;
+        radioArtist.textContent = ep.artist;
+        applyEpisodeTheme(ep);
+      }
+
+      function startTransition() {
+        if (transition) return;
+        const next = PLAYLIST[episodeIndex + 1];
+        if (!next) return;
+
+        const fadeDuration = (episode.crossfadeDuration ?? 3) * 1000;
+        transition = {
+          next,
+          startTime: performance.now(),
+          fadeDuration,
+          uiSwapped: false,
+        };
+
+        function tick(now) {
+          if (!transition) return;
+          const t = Math.min(1, (now - transition.startTime) / transition.fadeDuration);
+
+          // Ease-in audio fade
+          episodeGain = Math.max(0, 1 - t * t);
+          applyVolume();
+
+          // Visual swap at 68% — cover, title, artist
+          if (t >= 0.68 && !transition.uiSwapped) {
+            transition.uiSwapped = true;
+            const ep = transition.next;
+            coverImg.style.opacity  = '0';
+            radioTitle.style.opacity  = '0';
+            radioArtist.style.opacity = '0';
+            window.setTimeout(() => {
+              coverImg.src         = ep.cover;
+              coverImg.alt         = `${ep.title} album cover`;
+              radioTitle.textContent  = ep.title;
+              radioArtist.textContent = ep.artist;
+              coverImg.style.opacity  = '';
+              radioTitle.style.opacity  = '';
+              radioArtist.style.opacity = '';
+            }, 350);
+          }
+
+          if (t < 1) {
+            window.requestAnimationFrame(tick);
+          } else {
+            const nextEp = transition.next;
+            transition = null;
+            advanceToEpisode(episodeIndex + 1, nextEp);
+          }
+        }
+
+        window.requestAnimationFrame(tick);
+      }
+
+      function advanceToEpisode(index, ep) {
+        episodeIndex  = index;
+        episode       = ep;
+        narrationEnd  = ep.subtitleCues.at(-1).end;
+        lyricIndex    = -1;
+        displayKey    = 'intro';
+        episodeGain   = 1;
+        resolvedDuration = null;
+
+        setEpisodeVisuals(ep);
+        syncMain.textContent      = '正在加载…';
+        syncCard.dataset.mode     = 'voice';
+        syncMain.classList.remove('is-lyric-line');
+
+        applyVolume();
+
+        audio.src = ep.audio;
+        audio.load();
+        audio.play().catch(() => {});
+      }
+
+      function selectEpisode(index) {
+        const nextIndex = Number(index);
+        const nextEpisode = PLAYLIST[nextIndex];
+        if (!nextEpisode) return;
+
+        transition = null;
+        advanceToEpisode(nextIndex, nextEpisode);
+      }
+
+      // ── Load first episode (auto-play after listeners are registered) ──
+      setEpisodeVisuals(episode);
+      audio.src = episode.audio;
+      audio.load();
+      probeDuration();
+
+      function updatePlayState() {
+        playButton.textContent = audio.paused ? '▶' : 'Ⅱ';
+        playButton.setAttribute('aria-label', audio.paused ? '播放' : '暂停');
+        document.body.dataset.playing = audio.paused ? 'false' : 'true';
+      }
+
+      function setProgressFromPointer(clientX) {
+        const duration = getPlaybackDuration();
+        if (!Number.isFinite(duration) || duration <= 0) return;
+        const rect = progressRoot.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        audio.currentTime = ratio * duration;
+      }
+
+      function heldSubtitleIndex(time) {
+        const cues = episode.subtitleCues;
+        let index = -1;
+        for (let i = 0; i < cues.length; i += 1) {
+          if (cues[i].start <= time) index = i;
+        }
+        return Math.max(index, 0);
+      }
+
+      function currentLyricIndex(time) {
+        const lines = episode.lyricLines;
+        let index = -1;
+        for (let i = 0; i < lines.length; i += 1) {
+          if (lines[i].time <= time) index = i;
+        }
+        return Math.max(index, 0);
+      }
+
+      function lyricLineEnd(index) {
+        const lines = episode.lyricLines;
+        const nextLine = lines[index + 1];
+        if (nextLine) return nextLine.time;
+        const playbackDuration = getPlaybackDuration();
+        return Number.isFinite(playbackDuration) && playbackDuration > 0
+          ? playbackDuration
+          : lines[index].time + 4;
+      }
+
+      function lyricProgress(time, index) {
+        const start = episode.lyricLines[index].time;
+        const end = lyricLineEnd(index);
+        if (end <= start) return 1;
+        return Math.max(0, Math.min(1, (time - start) / (end - start)));
+      }
+
+      function buildLyricMain(index) {
+        const line = episode.lyricLines[index];
+        const text = line?.text || '';
+        syncMain.replaceChildren();
+        syncMain.classList.add('is-lyric-line');
+        syncMain.setAttribute('aria-label', text);
+
+        if (!text) return;
+
+        if (line?.segments?.length) {
+          line.segments.forEach((segment) => {
+            [...segment.text].forEach((char) => {
+              const span = document.createElement('span');
+              span.className = 'lyric-char';
+              span.dataset.time = segment.time;
+              span.textContent = char;
+              syncMain.appendChild(span);
+            });
+          });
+          return;
+        }
+
+        [...text].forEach((char) => {
+          const span = document.createElement('span');
+          span.className = 'lyric-char';
+          span.textContent = char;
+          syncMain.appendChild(span);
+        });
+      }
+
+      function updateLyricProgress(time) {
+        if (syncCard.dataset.mode !== 'lyrics' || lyricIndex < 0) return;
+
+        const chars = syncMain.querySelectorAll('.lyric-char');
+        if (!chars.length) return;
+
+        const line = episode.lyricLines[lyricIndex];
+        if (line?.segments?.length) {
+          chars.forEach((char) => {
+            const segmentTime = Number.parseFloat(char.dataset.time);
+            char.classList.toggle('is-played', Number.isFinite(segmentTime) && time >= segmentTime);
+          });
+          return;
+        }
+
+        const playedCount = Math.floor(lyricProgress(time, lyricIndex) * chars.length);
+        chars.forEach((char, charIndex) => {
+          char.classList.toggle('is-played', charIndex < playedCount);
+        });
+      }
+
+      function renderLyrics(index) {
+        const nextIndex = index + 1;
+        const nextLine = episode.lyricLines[nextIndex];
+        lyricSlots.forEach((slot) => {
+          slot.textContent = nextLine?.text || '';
+          slot.classList.remove('is-active');
+          slot.classList.toggle('is-near', Boolean(nextLine));
+          slot.hidden = !nextLine;
+        });
+      }
+
+      function setSyncText({ mode, text, key }) {
+        if (key === displayKey) return;
+        displayKey = key;
+        syncMain.classList.add('is-changing');
+        window.setTimeout(() => {
+          syncCard.dataset.mode = mode;
+          syncMain.classList.remove('is-lyric-line');
+          syncMain.removeAttribute('aria-label');
+          syncMain.textContent = text;
+          syncMain.classList.remove('is-changing');
+        }, 110);
+      }
+
+      function setLyricLine(index) {
+        const key = `lyrics-${index}`;
+        if (key === displayKey) return;
+        displayKey = key;
+        syncMain.classList.add('is-changing');
+        window.setTimeout(() => {
+          syncCard.dataset.mode = 'lyrics';
+          buildLyricMain(index);
+          syncMain.classList.remove('is-changing');
+          updateLyricProgress(audio.currentTime);
+        }, 110);
+      }
+
+      function renderTimedText() {
+        const time = audio.currentTime;
+
+        if (time <= narrationEnd) {
+          lyricIndex = -1;
+          const nextSubtitleIndex = heldSubtitleIndex(time);
+          setSyncText({
+            mode: 'voice',
+            text: episode.subtitleCues[nextSubtitleIndex].text,
+            key: `voice-${nextSubtitleIndex}`
+          });
+          return;
+        }
+
+        const nextLyricIndex = currentLyricIndex(time);
+        if (nextLyricIndex !== lyricIndex || syncCard.dataset.mode !== 'lyrics') {
+          lyricIndex = nextLyricIndex;
+          setLyricLine(lyricIndex);
+          renderLyrics(lyricIndex);
+          return;
+        }
+
+        updateLyricProgress(time);
+      }
+
+      function updateProgress() {
+        const duration = getPlaybackDuration();
+        const ratio = duration > 0 ? audio.currentTime / duration : 0;
+        progressFill.style.width = `${ratio * 100}%`;
+        progressRoot.style.setProperty('--progress', `${ratio * 100}%`);
+        progressRoot.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+        renderCounter(timeReadout, `${formatTime(audio.currentTime)} / ${formatTime(duration)}`);
+        renderTimedText();
+
+        // Episode crossfade trigger
+        if (!transition && duration > 0 && episodeIndex < PLAYLIST.length - 1) {
+          const fadeSecs = episode.crossfadeDuration ?? 3;
+          if (audio.currentTime >= duration - fadeSecs) {
+            startTransition();
+          }
+        }
+      }
+
+      playButton.addEventListener('click', async () => {
+        if (audio.paused) {
+          await audio.play();
+        } else {
+          audio.pause();
+        }
+      });
+
+      progressRoot.addEventListener('pointerdown', event => {
+        progressPointerId = event.pointerId;
+        progressRoot.classList.add('is-dragging');
+        progressRoot.setPointerCapture(progressPointerId);
+        setProgressFromPointer(event.clientX);
+      });
+
+      progressRoot.addEventListener('pointermove', event => {
+        if (event.pointerId !== progressPointerId) return;
+        setProgressFromPointer(event.clientX);
+      });
+
+      function releaseProgress() {
+        progressPointerId = null;
+        progressRoot.classList.remove('is-dragging');
+      }
+
+      progressRoot.addEventListener('pointerup', releaseProgress);
+      progressRoot.addEventListener('pointercancel', releaseProgress);
+      progressRoot.addEventListener('lostpointercapture', releaseProgress);
+
+      progressRoot.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') {
+          audio.currentTime = Math.max(0, audio.currentTime - 5);
+          event.preventDefault();
+        }
+        if (event.key === 'ArrowRight') {
+          audio.currentTime = Math.min(getPlaybackDuration(), audio.currentTime + 5);
+          event.preventDefault();
+        }
+      });
+
+      audio.addEventListener('loadedmetadata', () => {
+        probeDuration();
+        updateProgress();
+      });
+      audio.addEventListener('durationchange', updateProgress);
+      audio.addEventListener('timeupdate', updateProgress);
+      audio.addEventListener('play', updatePlayState);
+      audio.addEventListener('pause', updatePlayState);
+      audio.addEventListener('ended', updatePlayState);
+
+      window.addEventListener('radio:selectEpisode', event => {
+        selectEpisode(event.detail?.index);
+      });
+
+      initElasticSlider(audio, (vol) => {
+        sliderVolume = vol;
+        applyVolume();
+      });
+      updatePlayState();
+      updateProgress();
+
+      // Auto-play after all listeners are in place
+      audio.play().catch(() => {});
+    }
+
     initTiltedCard();
     initCardNoise();
-    initElasticSlider();
+    initSpotlightCard();
+    initGrainientBackground();
+    initRadioPlayer();
 
     const BLUE = new THREE.Color('#0081f7');
     const WHITE = new THREE.Color('#f2f8ff');
@@ -599,15 +1826,14 @@
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: false,
+      alpha: true,
       powerPreference: 'high-performance'
     });
-    renderer.setClearColor(BLUE, 1);
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     stage.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = BLUE;
 
     const camera = new THREE.OrthographicCamera(-2.25, 2.25, 1.7, -1.7, 0.1, 20);
     camera.position.set(0, 0, 7);
@@ -710,7 +1936,7 @@
     const mainRing = new THREE.Mesh(geometry, makeMaterial(WHITE, 1.18, 0.06));
     group.add(mainRing);
 
-    group.position.set(0, -2.22, 0);
+    group.position.set(0, 2.6, 0);
 
     const clock = new THREE.Clock();
 

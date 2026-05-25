@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
   <title>Personal Radio</title>
   <style>
     :root {
@@ -1273,6 +1274,11 @@
 
       unicornSceneRequested = true;
       fitUnicornScene();
+
+      if (window.location.protocol === 'file:') {
+        window.location.assign(UNICORN_SCENE_URL);
+        return;
+      }
 
       if (!unicornScene) {
         return;
