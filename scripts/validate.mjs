@@ -8,24 +8,16 @@ const indexPath = path.join(root, 'index.html');
 const html = readFileSync(indexPath, 'utf8');
 
 const requiredSnippets = [
-  'data-state="wrapped"',
-  "root.dataset.state = 'peeling'",
-  "root.dataset.state = 'open'",
+  'class="chroma-grid"',
+  'class="chroma-card"',
+  'cover-mono',
+  'cover-color',
+  'radial-gradient(',
+  'pointermove',
+  'const programs = [',
+  "href: 'unicorn.html'",
+  '<script src="./playlist.js"></script>',
   'prefers-reduced-motion: reduce',
-  'is-unwrapping',
-  '@keyframes unwrap-cover',
-  '@keyframes film-top-lift',
-  '@keyframes film-bottom-lift',
-  '@keyframes seal-open',
-  'class="seal"',
-  'backdrop-filter',
-  'UNICORN_SCENE_URL',
-  'id="unicornScene"',
-  'albumUnwrapper.addEventListener',
-  "event.key === 'Enter'",
-  "event.key === ' '",
-  'audioPlayer.play()',
-  'trackList.addEventListener'
 ];
 
 const missing = requiredSnippets.filter((snippet) => !html.includes(snippet));
@@ -53,7 +45,11 @@ if (presentForbidden.length > 0) {
 const localSources = [
   ...html.matchAll(/(?:src|cover): ['"]([^'"]+)['"]/g),
   ...html.matchAll(/<img[^>]+src="([^"]+)"/g)
-].map((match) => match[1]).filter((source) => !source.startsWith('http') && !source.startsWith('data:'));
+].map((match) => match[1]).filter((source) => (
+  !source.startsWith('http')
+  && !source.startsWith('data:')
+  && !source.includes('${')
+));
 
 const unavailable = [...new Set(localSources)]
   .map((source) => ({ source, file: path.resolve(root, source) }))

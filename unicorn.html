@@ -1561,6 +1561,13 @@
         advanceToEpisode(nextIndex, nextEpisode);
       }
 
+      function initialEpisodeIndexFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const rawIndex = params.get('episode') ?? params.get('track');
+        const index = Number.parseInt(rawIndex, 10);
+        return PLAYLIST[index] ? index : 0;
+      }
+
       // ── Load first episode (auto-play after listeners are registered) ──
       setEpisodeVisuals(episode);
       audio.src = episode.audio;
@@ -1809,7 +1816,12 @@
       updateProgress();
 
       // Auto-play after all listeners are in place
-      audio.play().catch(() => {});
+      const initialEpisodeIndex = initialEpisodeIndexFromUrl();
+      if (initialEpisodeIndex > 0) {
+        selectEpisode(initialEpisodeIndex);
+      } else {
+        audio.play().catch(() => {});
+      }
     }
 
     initTiltedCard();
